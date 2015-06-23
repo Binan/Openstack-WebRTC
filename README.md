@@ -1,4 +1,4 @@
-# birma
+# Openstack WebRTC Gateway Heat Template
 
 These are Openstack Heat template files used for WebRTC Gateway deployment in Openstack cloud
 Assuming the Gateway server pulls its configuration on boot (systemd oneshot script) and stores the configuration in its database. then it starts the gateway service.
