@@ -1,0 +1,11 @@
+parameters:
+  image: Golden-Image-20-June-2015
+  key: WebRTC-GW-KP
+  flavor: w1.large
+  network: a6b9c598-9681-4a92-b028-f822cac57584
+  private_subnet_id: e4b63488-c776-4acd-97e3-027fe30e6de5
+  external_network_id: 62954df1-05bb-42e5-9960-ca921cccaeeb
+  security_group_name: open-web-and-ssh
+
+resource_registry:  
+    "OS::Nova::Server::centos": "Server.yaml"
