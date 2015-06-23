@@ -41,7 +41,7 @@ resources:
       min_size: 1
       max_size: 3
       resource:
-        type: OS::Nova::Server::Frafos
+        type: OS::Nova::Server::Centos
         properties:
            RTC-App-Pool-ID: {get_resource: RTC-App-Pool}
            WebSocket-Pool-ID: {get_resource: WebSocket-Pool} 
