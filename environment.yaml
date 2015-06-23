@@ -8,4 +8,4 @@ parameters:
   security_group_name: open-web-and-ssh
 
 resource_registry:  
-    "OS::Nova::Server::centos": "Server.yaml"
+    "OS::Nova::Server::Centos": "Server.yaml"
