@@ -70,13 +70,13 @@ resources:
     properties:
       group: script
       inputs:
-        - name: privateIP
+        - name: param1
       outputs:
         - name: result
       config: |
         #! /bin/sh -x
-        # Write your cleanup code here
-        # This code will be executed on DELETE Action
+        # Wait until no active sessions/calls.
+        # Use $param1 if needed.
         
   delete-deployment:
     type: OS::Heat::SoftwareDeployment
@@ -85,7 +85,8 @@ resources:
         get_resource: delete-config
       server: { get_resource: server }
       input_values:
-        privateIP: { get_attr: [ server, first_address ] }
+        # Example the param1 can be the IP address
+        param1: { get_attr: [ server, first_address ] }
       signal_transport : HEAT_SIGNAL
       actions:
         - DELETE
