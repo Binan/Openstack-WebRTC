@@ -1,0 +1,107 @@
+heat_template_version: 2013-05-23
+
+parameters:
+
+  image:
+    type: string
+    description: GW+SoftwareDeployment Image used for servers
+    default: Golden-Image-20-June-2015
+  key:
+    type: string
+    description: SSH key name to connect to the servers
+    default: WebRTC-GW-KP
+  security_group_name:
+    type: string
+    description: security group name
+    default: open-web-and-ssh
+  flavor:
+    type: string
+    description: flavor used by the web servers
+    default: w1.large
+  network:
+    type: string
+    description: Network used by the server
+    default: a6b9c598-9681-4a92-b028-f822cac57584
+  private_subnet_id:
+    type: string
+    description: subnet on which the load balancer will be located
+    default: e4b63488-c776-4acd-97e3-027fe30e6de5
+  external_network_id:
+    type: string
+    description: UUID of a Neutron external network
+    default: 62954df1-05bb-42e5-9960-ca921cccaeeb
+  RTC-App-Pool-ID:
+    type: string
+    description: RTC Application Pool to contact
+  WebSocket-Pool-ID:
+    type: string
+    description: WebSocket Pool to contact
+
+
+resources:
+
+  server:
+    type: OS::Nova::Server
+    properties:
+      flavor: { get_param: flavor }
+      image: { get_param: image }
+      key_name: { get_param: key }
+      networks:
+        - port: { get_resource: server_port }
+      user_data_format: SOFTWARE_CONFIG
+      software_config_transport: POLL_SERVER_HEAT
+
+  server_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: network } 
+      fixed_ips:
+        - subnet_id: { get_param: private_subnet_id } 
+      security_groups: [{ get_param: security_group_name }]
+
+  server_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: server_port }
+
+  delete-config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: privateIP
+      outputs:
+        - name: result
+      config: |
+        #! /bin/sh -x
+        # Write your cleanup code here
+        # This code will be executed on DELETE Action
+        
+  delete-deployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      config:
+        get_resource: delete-config
+      server: { get_resource: server }
+      input_values:
+        privateIP: { get_attr: [ server, first_address ] }
+      signal_transport : HEAT_SIGNAL
+      actions:
+        - DELETE
+
+  # Membership in TCP-80 Loadbalancing
+  Member-In-LB-80:
+    type: OS::Neutron::PoolMember
+    properties:
+      pool_id: {get_param: RTC-App-Pool-ID}
+      address: {get_attr: [server, first_address]}
+      protocol_port: 80 
+
+  # Membership in TCP-8080 Loadbalancing
+  Member-In-LB-8080:
+    type: OS::Neutron::PoolMember
+    properties:
+      pool_id: {get_param: WebSocket-Pool-ID}
+      address: {get_attr: [server, first_address]}
+      protocol_port: 8080 
