@@ -1,0 +1,165 @@
+heat_template_version: 2013-05-23
+description: AutoScaling GW With Clean Shutdown. Two Loadbalancer (ports:80 and 8080). WebRTC Gateway Openstack Integration 
+
+parameters:
+
+  image:
+    type: string
+    description: GW+SoftwareDeployment Image used for servers
+    default: Golden-Image-20-June-2015
+  key:
+    type: string
+    description: SSH key name to connect to the servers
+    default: WebRTC-GW-KP
+  security_group_name:
+    type: string
+    description: security group name
+    default: open-web-and-ssh
+  flavor:
+    type: string
+    description: flavor used by the web servers
+    default: w1.large
+  network:
+    type: string
+    description: Network used by the server
+    default: a6b9c598-9681-4a92-b028-f822cac57584
+  private_subnet_id:
+    type: string
+    description: subnet on which the load balancer will be located
+    default: e4b63488-c776-4acd-97e3-027fe30e6de5
+  external_network_id:
+    type: string
+    description: UUID of a Neutron external network
+    default: 62954df1-05bb-42e5-9960-ca921cccaeeb
+
+
+resources:
+ 
+  auto-scaling-group:
+    type: OS::Heat::AutoScalingGroup
+    properties:
+      min_size: 1
+      max_size: 3
+      resource:
+        type: OS::Nova::Server::Frafos
+        properties:
+           RTC-App-Pool-ID: {get_resource: RTC-App-Pool}
+           WebSocket-Pool-ID: {get_resource: WebSocket-Pool} 
+
+  GW-server-scaleup-policy:
+    type: OS::Heat::ScalingPolicy
+    properties:
+      adjustment_type: change_in_capacity
+      auto_scaling_group_id: {get_resource: auto-scaling-group}
+      cooldown: 60
+      scaling_adjustment: 1
+
+  GW-server-scaledown-policy:
+    type: OS::Heat::ScalingPolicy
+    properties:
+      adjustment_type: change_in_capacity
+      auto_scaling_group_id: {get_resource: auto-scaling-group}
+      cooldown: 60
+      scaling_adjustment: -1
+
+  cpu_alarm_high:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Scale-up if the average CPU > 50% for 1 minute
+      meter_name: cpu_util
+      statistic: avg
+      period: 60
+      evaluation_periods: 1
+      threshold: 50
+      alarm_actions:
+        - {get_attr: [GW-server-scaleup-policy, alarm_url]}
+      matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      comparison_operator: gt
+
+  cpu_alarm_low:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Scale-down if the average CPU < 15% for 10 minutes
+      meter_name: cpu_util
+      statistic: avg
+      period: 600
+      evaluation_periods: 1
+      threshold: 15
+      alarm_actions:
+        - {get_attr: [GW-server-scaledown-policy, alarm_url]}
+      matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      comparison_operator: lt
+
+  monitor:
+    type: OS::Neutron::HealthMonitor
+    properties:
+      type: TCP
+      delay: 5
+      max_retries: 5
+      timeout: 5
+
+  RTC-App-Pool:
+    type: OS::Neutron::Pool
+    properties:
+      protocol: TCP
+      monitors: [{get_resource: monitor}]
+      subnet_id: {get_param: private_subnet_id}
+      lb_method: ROUND_ROBIN
+      vip:
+        protocol_port: 80
+
+  RTC-App-LB:
+    type: OS::Neutron::LoadBalancer
+    properties:
+      protocol_port: 80
+      pool_id: {get_resource: RTC-App-Pool}
+
+  RTC-App-LB-Floating:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: {get_param: external_network_id}
+      port_id: {get_attr: [RTC-App-Pool, vip, port_id]}
+
+  WebSocket-Pool:
+    type: OS::Neutron::Pool
+    properties:
+      protocol: TCP
+      monitors: [{get_resource: monitor}]
+      subnet_id: {get_param: private_subnet_id}
+      lb_method: ROUND_ROBIN
+      vip:
+        protocol_port: 8080
+
+  WebSocket-LB:
+    type: OS::Neutron::LoadBalancer
+    properties:
+      protocol_port: 8080
+      pool_id: {get_resource: WebSocket-Pool}
+
+  WebSocket-LB-Floating:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: {get_param: external_network_id}
+      #fixed_ip_address: {get_attr: [WebSocket-Pool, vip ,address]}
+      port_id: {get_attr: [WebSocket-Pool, vip ,port_id]}
+
+
+outputs:
+
+  Scale-Up-URL:
+    description: >
+      Webhook URL for scal up.
+    value: {get_attr: [GW-server-scaleup-policy, alarm_url]}
+
+  Scale_Down_URL:
+    description: >
+      Webhook URL For scale down.
+    value: {get_attr: [GW-server-scaledown-policy, alarm_url]}
+  
+  RTC-App-Pool-IP-Address:
+    value: {get_attr: [RTC-App-LB-Floating, floating_ip_address]}
+    description: The public IP address of the RTC App load balancing pool
+
+  WebSocket-Pool-IP-Address:
+    value: {get_attr: [WebSocket-LB-Floating, floating_ip_address]}
+    description: The Public IP address of the WebSocket signaling load balancing pool
