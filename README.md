@@ -1,11 +1,11 @@
 # Openstack WebRTC Gateway Heat Template
 
-These are Openstack Heat template files used for WebRTC Gateway deployment in Openstack cloud
-Assuming the Gateway server pulls its configuration on boot (systemd oneshot script) and stores the configuration in its database. then it starts the gateway service.
+These are Openstack Heat template files that can be used for WebRTC Gateway deployment in Openstack cloud. You need to make your gateway server pulls its configuration on boot using curl from the standard metadata service (URL: http://169.254.169.254/latest/meta-data/) and stores the configuration in its database.This is systemd oneshot script. Then the gateway service starts after the boot script.
 
-This template creates autoscaling group with policies and alarms. DELETE action is deployed for clean shutdown so when the server is determined to be killed, it cleans itself and signal Heat (Heat Software Deployment resource types in the template). The image is built with Heat agents using diskimage-builder.
+The template creates autoscaling group with policies and alarms. DELETE action is deployed for clean shutdown so when the server is determined to be killed, it cleans itself and signal Heat on completion. The image is built with Heat agents using diskimage-builder.
 
 To execute the template you need to have Heat client installed:
-1- source your keystone RC file
-2- Assuming all template files in the same directory. Execute this :
- # heat stack-create Stack-01 -f MainTemplate.yaml -e environment.yaml
+
+- Source your keystone RC file
+- Assuming all template files in the same directory. Execute this :
+      # heat stack-create $StackName -f MainTemplate.yaml -e environment.yaml
