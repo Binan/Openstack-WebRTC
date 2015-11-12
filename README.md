@@ -1,4 +1,4 @@
-[Read more words!](http://voipmagazine.wordpress.com/)
+- hh
 # Openstack WebRTC Gateway Heat Template
 
 These are Openstack Heat template files that can be used for WebRTC Gateway deployment in Openstack cloud. You need to make your gateway server pulls its configuration on boot using curl from the standard metadata service (URL: http://169.254.169.254/latest/meta-data/) and stores the configuration in its database.This is systemd oneshot script. Then the gateway service starts after the boot script.
